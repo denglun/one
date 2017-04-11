@@ -1,9 +1,7 @@
-// const Mongorito = require('mongorito');
-// const Model = Mongorito.Model;
-const MongoClient = require("mongodb").MongoClient;
+const MongoDb = require("mongodb");
+const fs = require("fs");
+const MongoClient = MongoDb.MongoClient;
 const url = process.env.MONGO_URL;
-const uuid = require('uuid');
-
 
 
 module.exports = {
@@ -20,9 +18,13 @@ module.exports = {
             });
         });
     },
-    add: ({title, content}, callback) => {
+    add: (doc, image, callback) => {
         MongoClient.connect(url, (err, db) => {
-            const doc = { id: uuid(), time: Date.now(), title, content };
+            if (image) {
+                const data = fs.readFileSync(image.path);
+                doc.image = new MongoDb.Binary(data);
+                doc.imageType = image.headers['content-type'];
+            }
             db.collection('posts').insert(doc, (err, result) => {
                 callback(result.ops[0]);
                 db.close();
@@ -31,28 +33,54 @@ module.exports = {
     },
     remove: (id, callback) => {
         MongoClient.connect(url, (err, db) => {
-            db.collection('posts').deleteOne({ id }, (err, result) => {
-                if (!err) {
-                    callback();
-                }
-            });
-            setTimeout(() => {
-                db.close();
-            }, 5000);
+            if (err) {
+                console.log("MongoDB Connection Failed:", err);
+            } else {
+                db.collection('posts').deleteOne({ id }, (err, result) => {
+                    if (!err) {
+                        callback();
+                    }
+                });
+                setTimeout(() => {
+                    db.close();
+                }, 5000);
+
+            }
         });
 
     },
     last: callback => {
         MongoClient.connect(url, (err, db) => {
-            if(err){
+            if (err) {
                 console.log("MongoDB Connection Failed:", err);
+                callback(null, err);
             }
             db.collection('posts').find({}).sort({ 'time': -1 }).toArray().then(
                 posts => {
-                    callback(posts[0]);
+                    const post = posts[0];
+                    post.image = undefined;
+                    callback(post);
+                    //  console.log("posts0", posts[0]);
                     db.close();
                 }
             );
+        });
+    },
+    find: (condition, callback) => {
+        MongoClient.connect(url, (err, db) => {
+            if (err) {
+                console.log("MongoDB Connection Failed:", err);
+                callback(err);
+            } else {
+                //   console.log("condition", condition);
+                db.collection('posts').findOne(condition,
+                    (err, post) => {
+                        //  console.log("post", post);
+                        callback(err, post);
+                        db.close();
+                    }
+                );
+            }
         });
     }
 };

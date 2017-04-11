@@ -1,23 +1,19 @@
 
 require('dotenv').config();
 
-const http = require('http');
-const fetch = require('node-fetch');
 const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
 const hostname = '127.0.0.1';
 const port = process.env.PORT && Number.parseInt(process.env.PORT) || 3001;
-const Cryptr = require("cryptr");
-const cryptr = new Cryptr('my secret key');
 const db = require('./mongodb');
-
+const multiparty = require('multiparty');
+const uuid = require('uuid');
 
 app.use(bodyParser.json());
 
 app.get('/posts/:id', (req, res) => {
-  const post = db.byId(req.params.id);
-  res.send(post);
+  db.find({ id: req.params.id }, post => res.send(post));
 });
 
 app.get('/posts', (req, res) => {
@@ -25,12 +21,35 @@ app.get('/posts', (req, res) => {
 });
 
 app.get('/last', (req, res) => {
-  db.last(post => res.send(post));
+  db.last((post, err) => { res.send(err ? { msg: err.message } : post) });
+});
+
+app.get("/posts/:id/image", (req, res) => {
+  db.find({ id: req.params.id }, (error, result) => {
+    if (error) {
+      res.send({ msg: error.message });
+    } else if (!result || !result.imageType || !result.image || !result.image.buffer || !result.image.buffer.length) {
+      res.sendStatus(404);
+    } else {
+      res.contentType(result.imageType);
+      res.end(result.image.buffer, "binary");
+    }
+  });
 });
 
 app.post('/posts', (req, res) => {
-  //console.log("req.body", req.body)
-  db.add(req.body, result => res.send(result));
+  var form = new multiparty.Form();
+  form.parse(req, (err, fields, files) => {
+    if (err) {
+      res.send({ msg: err.message });
+    } else {
+      const { title, content } = fields;
+      const doc = { id: uuid(), time: Date.now(), title: title[0], content: content[0] };
+      const image = files.image && files.image[0];
+      db.add(doc, image, result => res.send(result));
+    }
+  });
+
 });
 
 
@@ -41,8 +60,8 @@ app.delete('/posts/:id', function (req, res) {
 
 app.use(express.static(__dirname + "/build"));
 
-app.get('/', function(req, res){
-    res.sendFile(__dirname + '/index.html');
+app.get('/', function (req, res) {
+  res.sendFile(__dirname + '/index.html');
 });
 
 

@@ -28,7 +28,7 @@ app.get("/posts/:id/image", (req, res) => {
   db.find({ id: req.params.id }, (error, result) => {
     if (error) {
       res.send({ msg: error.message });
-    } else if (!result || !result.imageType || !result.image || !result.image.buffer || !result.image.buffer.length) {
+    } else if (!result || !result.hasImage || !result.imageType || !result.image || !result.image.buffer || !result.image.buffer.length) {
       res.sendStatus(404);
     } else {
       res.contentType(result.imageType);
@@ -43,8 +43,8 @@ app.post('/posts', (req, res) => {
     if (err) {
       res.send({ msg: err.message });
     } else {
-      const { title, content } = fields;
-      const doc = { id: uuid(), time: Date.now(), title: title[0], content: content[0] };
+      const { title, content, hasImage } = fields;
+      const doc = { id: uuid(), time: Date.now(), title: title[0], content: content[0], hasImage: hasImage[0] };
       const image = files.image && files.image[0];
       db.add(doc, image, result => res.send(result));
     }

@@ -44,7 +44,7 @@ app.post('/posts', (req, res) => {
       res.send({ msg: err.message });
     } else {
       const { title, content, hasImage } = fields;
-      const doc = { id: uuid(), time: Date.now(), title: title[0], content: content[0], hasImage: hasImage[0] };
+      const doc = { id: uuid(), time: Date.now(), title: title[0], content: content[0], hasImage: hasImage[0] === 'true' };
       const image = files.image && files.image[0];
       db.add(doc, image, result => res.send(result));
     }

@@ -31,6 +31,21 @@ module.exports = {
             });
         });
     },
+    import: (posts, callback) => {
+        function insert(db, blog, callback) {
+            db.collection('posts').insert(blog, (err, result) => {
+                console.log("imported: ", result.ops[0].title);
+                callback();
+            });
+        };
+        MongoClient.connect(url, (err, db) => {
+            const requests = posts.reduce((proChain, item) => (
+                proChain.then(() => new Promise(resolve => {
+                    insert(db, item, resolve);
+                }))), Promise.resolve());
+            requests.then(() => { db.close(); console.log('done.'); });
+        });
+    },
     remove: (id, callback) => {
         MongoClient.connect(url, (err, db) => {
             if (err) {
@@ -53,13 +68,12 @@ module.exports = {
         MongoClient.connect(url, (err, db) => {
             if (err) {
                 console.log("MongoDB Connection Failed:", err);
-                callback(null, err);
+                return callback(null, err);
             }
             db.collection('posts').find({}).sort({ 'time': -1 }).toArray().then(
                 posts => {
                     const post = posts[0];
-                    post.image = undefined;
-                    callback(post);
+                    callback(post ? post : {});
                     //  console.log("posts0", posts[0]);
                     db.close();
                 }

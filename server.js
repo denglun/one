@@ -51,6 +51,18 @@ app.post('/posts', (req, res) => {
   });
 
 });
+app.post('/import', (req, res) => {
+  var form = new multiparty.Form();
+  form.parse(req, (err, fields, files) => {
+    if (err) {
+      res.send({ msg: err.message });
+    } else {
+      const posts = files.posts && files.posts[0];
+      db.import(posts, result => res.send({ msg: result }));
+    }
+  });
+
+});
 
 
 app.delete('/posts/:id', function (req, res) {

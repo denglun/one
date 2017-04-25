@@ -31,19 +31,52 @@ module.exports = {
             });
         });
     },
-    import: (posts, callback) => {
-        function insert(db, blog, callback) {
-            db.collection('posts').insert(blog, (err, result) => {
-                console.log("imported: ", result.ops[0].title);
-                callback();
+    import: (file, callback) => {
+        function insert(table, blog, resolve, reject) {
+            table.findOne({ id: blog.id }, (err, item) => {
+                if (item) {
+                    console.log("exist: ", blog.title);
+                    reject(blog.title);
+                } else {
+                    if ((blog.hasImage && blog.hasImage === "true") || blog.image) {
+                        blog.hasImage = true;
+                    } else {
+                        blog.hasImage = false;
+                    }
+                    table.insert(blog, (err, result) => {
+                        console.log("imported: ", result.ops[0].title);
+                        resolve(result.ops[0].title);
+                    });
+                }
             });
         };
         MongoClient.connect(url, (err, db) => {
+            const table = db.collection('posts');
+            table.find({}).toArray().then(posts => {
+                posts.map(
+                    ({_id, id, title}) => {
+                        // console.log("id=", p.id);
+                        // console.log("_id", p._id);
+                        // console.log("title", p.title);
+                        console.log(`${_id},${id},${title}`);
+                    });
+            });
+            const data = fs.readFileSync(file.path).toString();
+            const posts = JSON.parse(data);
+            const message = [];
             const requests = posts.reduce((proChain, item) => (
-                proChain.then(() => new Promise(resolve => {
-                    insert(db, item, resolve);
-                }))), Promise.resolve());
-            requests.then(() => { db.close(); console.log('done.'); });
+                proChain.then(fulfillmentValue => {
+                    message.push("imported: " + fulfillmentValue);
+                    return new Promise((resolve, reject) => {
+                        insert(table, item, resolve, reject);
+                    });
+                }, rejectedValue => {
+                    message.push("skipped: " + rejectedValue);
+                })), Promise.resolve()).then(() => {
+                    db.close();
+                    console.log('done.');
+                    callback(message);
+                });
         });
     },
     remove: (id, callback) => {
